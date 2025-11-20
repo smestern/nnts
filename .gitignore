@@ -1,0 +1,13 @@
+**/checkpoint-*/
+**.pyc
+**__pycache__/
+**.ipynb_checkpoints
+nn_ds_combined.joblib
+electrophysiology_model/*
+debug_plots/*
+electrophysiology_transformer/debug_plots/*
+workspace.zip
+*.pt
+*.joblib
+nn_ds_c.joblib
+nn_ds.joblib
