@@ -94,9 +94,9 @@ def evaluate(model, dataloader, device):
     return total_loss / max(len(dataloader), 1)
 
 
-def main():
+def main(data_path="nn_ds_combined.joblib", checkpoint_path=None):
     # Configuration
-    DATA_PATH = "nngan_trace_dataset_2000.joblib"
+    DATA_PATH = "nngan_trace_dataset_2000.joblib" if data_path is None else data_path
     CONTEXT_LENGTH = 512
     PREDICTION_LENGTH = 128
     MAX_LAG = 7
@@ -106,7 +106,7 @@ def main():
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     CHECKPOINT = None #"best_val.pt"
     VAL_SPLIT = 0.1  # Fraction of windows reserved for validation (set to 0 to disable)
-    BEST_CHECKPOINT_PATH = "best_val.pt"
+    BEST_CHECKPOINT_PATH = "best_val.pt" if checkpoint_path is None else checkpoint_path
     print(f"Using device: {DEVICE}")
     
     # Create tokenizer
