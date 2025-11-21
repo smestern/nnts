@@ -24,6 +24,9 @@ class ElectrophysiologyDataset(Dataset):
         max_lag=7,
         sample_rate=10000,
         data_length=None,
+        include_time_features=False,
+        include_real_valued_features=False,
+        real_features_list=['input_resistance', 'tau', 'v_baseline', 'rheobase_i', 'ap_mean_threshold_v_0_long_square','ap_1_peak_v_0_long_square']
     ):
         """
         Args:
@@ -41,23 +44,29 @@ class ElectrophysiologyDataset(Dataset):
         self.data_length = data_length
         self.segment_stride = prediction_length
         self.total_length = self.context_length + self.max_lag + self.prediction_length
-
+        self.include_time_features = include_time_features
+        self.include_real_valued_features = include_real_valued_features
+        self.list_real_valued_features = real_features_list
         data = joblib.load(data_path)
-        voltages = data['voltages']
-        currents = data['currents']
+
+        voltages = data['responses']
+        currents = data['commands']
+        info = data.get('info', None)
 
         self.samples = []
-        self._prepare_samples(voltages, currents)
+        self._prepare_samples(voltages, currents, info)
         self.index = self._build_index()
+        self.len_real_valued_features = len(self.list_real_valued_features)
+        self.len_static_categorical_features = 1  # cell-of-origin as static categorical feature
 
         if not self.index:
             raise ValueError("No valid samples found after filtering.")
 
         print(f"Prepared {len(self.index)} windows from {len(self.samples)} trials")
 
-    def _prepare_samples(self, voltages, currents):
+    def _prepare_samples(self, voltages, currents, info=None):
         """Clean trials and concatenate sweeps once they pass basic quality checks."""
-        for v_trial, c_trial in zip(voltages, currents):
+        for i, (v_trial, c_trial) in enumerate(zip(voltages, currents)):
             if np.isscalar(v_trial):
                 continue
 
@@ -85,10 +94,23 @@ class ElectrophysiologyDataset(Dataset):
             if voltage_concat.shape[0] < self.total_length:
                 continue
 
+            if self.include_real_valued_features and info is not None:
+                trial_info = info[i]
+                for feature in self.list_real_valued_features:
+                    if feature in trial_info:
+                        value = trial_info[feature]
+                        if np.isnan(value):
+                            value = 0.0
+                    else:
+                        value = 0.0
+                    # Here you can store or process the real-valued feature as needed
+                    # For simplicity, we are not using them further in this example
+
             self.samples.append(
                 {
                     'voltage': voltage_concat,
                     'current': current_concat,
+                    'real_valued_features': {feature: trial_info.get(feature, 0.0) for feature in self.list_real_valued_features} if self.include_real_valued_features and info is not None else {}
                 }
             )
 
@@ -155,4 +177,8 @@ class ElectrophysiologyDataset(Dataset):
             'future_time_features': torch.tensor(future_time_features, dtype=torch.float32),
             'past_observed_mask': torch.tensor(past_observed_mask, dtype=torch.float32),
             'static_categorical_features': torch.tensor([trial_idx], dtype=torch.long), # Added static categorical feature, technically the cell-of-origin
+            'static_real_features': torch.tensor(
+                [sample['real_valued_features'].get(feature, 0.0) for feature in self.list_real_valued_features],
+                dtype=torch.float32
+            ) if self.include_real_valued_features else torch.tensor([] , dtype=torch.float32),
         }

@@ -95,7 +95,7 @@ def nwb_pass_thru(file, ef_df):
     try:
         return load_data(file, ef_df)
     except:
-        return np.nan, np.nan
+        return np.nan, np.nan,
 
 
 
@@ -114,13 +114,15 @@ def gen_dataset(num=2000):
     units_y = []
     units_c = []
     np.random.seed(0)
-    res = Parallel(n_jobs=12, verbose=5)(delayed(nwb_pass_thru)(nwbs[i], ef_df) for i in range(num))
-    units_y = [i[0] for i in res if i[0] is not np.nan]
-    units_c = [i[1] for i in res if i[1] is not np.nan]
+    res = Parallel(n_jobs=6, verbose=5)(delayed(nwb_pass_thru)(nwbs[i], ef_df) for i in range(num))
+    units_y = [i[0] for i in res if not np.isnan(i[0])]
+    units_c = [i[1] for i in res if not np.isnan(i[1])]
+    units_info = [i[-1] for i in res if i[0] is not np.nan]
+    assert len(units_y) == len(units_c) == len(units_info)
     #units_y_stack = np.vstack(units_y)
     #units_c_stack = np.vstack(units_c)
-    dump(units_y, "nn_ds.joblib", compress=9)
-    dump(units_c, "nn_ds_c.joblib", compress=9)
+    datas = {'responses': units_y, 'commands': units_c, 'info': units_info}
+    dump(datas, path + f'nngan_trace_dataset_{num}.joblib')
     return units_y
 
 

@@ -34,6 +34,7 @@ def train_epoch(model, dataloader, optimizer, device):
         future_time_features = batch['future_time_features'].to(device)
         past_observed_mask = batch['past_observed_mask'].to(device)
         static_categorical_features = batch['static_categorical_features'].to(device)
+        static_real_features = batch['static_real_features'].to(device)
         # Forward pass
         outputs = model(
             past_values=past_values,
@@ -42,6 +43,7 @@ def train_epoch(model, dataloader, optimizer, device):
             past_observed_mask=past_observed_mask,
             future_values=future_values,
             static_categorical_features=static_categorical_features,
+            static_real_features=static_real_features
         )
         
         loss = outputs.loss
@@ -75,6 +77,7 @@ def evaluate(model, dataloader, device):
         future_time_features = batch['future_time_features'].to(device)
         past_observed_mask = batch['past_observed_mask'].to(device)
         static_categorical_features = batch['static_categorical_features'].to(device)
+        static_real_features = batch['static_real_features'].to(device)
         # Forward pass
         outputs = model(
             past_values=past_values,
@@ -83,6 +86,7 @@ def evaluate(model, dataloader, device):
             past_observed_mask=past_observed_mask,
             future_values=future_values,
             static_categorical_features=static_categorical_features,
+            static_real_features=static_real_features,
         )
 
         total_loss += outputs.loss.item()
@@ -92,7 +96,7 @@ def evaluate(model, dataloader, device):
 
 def main():
     # Configuration
-    DATA_PATH = "nn_ds_combined.joblib"
+    DATA_PATH = "nngan_trace_dataset_2000.joblib"
     CONTEXT_LENGTH = 512
     PREDICTION_LENGTH = 128
     MAX_LAG = 7
@@ -100,7 +104,7 @@ def main():
     EPOCHS = 2000
     LEARNING_RATE = 1e-6
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    CHECKPOINT = "best_val.pt"
+    CHECKPOINT = None #"best_val.pt"
     VAL_SPLIT = 0.1  # Fraction of windows reserved for validation (set to 0 to disable)
     BEST_CHECKPOINT_PATH = "best_val.pt"
     print(f"Using device: {DEVICE}")
@@ -120,6 +124,8 @@ def main():
         prediction_length=PREDICTION_LENGTH,
         max_lag=MAX_LAG,
         data_length=10000,
+        include_time_features=True,
+        include_real_valued_features=True,
     )
     
     if VAL_SPLIT is not None and VAL_SPLIT > 0:
@@ -170,6 +176,8 @@ def main():
         encoder_ffn_dim=512,
         decoder_ffn_dim=512,
         dropout=0.01,
+        static_categorical_features=dataset.len_static_categorical_features,
+        static_real_features=dataset.len_real_valued_features,
         scaling="std",
     )
     

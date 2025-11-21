@@ -37,6 +37,10 @@ class ElectrophysiologyTransformer(nn.Module):
         decoder_ffn_dim: int = 512,
         dropout: float = 0.1,
         lags_sequence = [1, 2, 3, 4, 5, 6, 7],
+        static_categorical_features = 1,
+        static_real_features = 0,
+        cardinality = [2000],
+        embedding_dimension = [16],
         scaling: str = "mean",  # "mean", "std", or None
     ) -> None:
         """
@@ -63,10 +67,10 @@ class ElectrophysiologyTransformer(nn.Module):
             lags_sequence=lags_sequence,  # Use recent lags
             num_time_features=1,  # Simple time index / age feature
             num_dynamic_real_features=1,  # current as known future covariate
-            num_static_categorical_features=1,
-            num_static_real_features=0,
-            cardinality=[2000],
-            embedding_dimension=[16],
+            num_static_categorical_features=static_categorical_features,
+            num_static_real_features=static_real_features,
+            cardinality=cardinality,
+            embedding_dimension=embedding_dimension,
             d_model=d_model,
             encoder_layers=encoder_layers,
             decoder_layers=decoder_layers,
@@ -92,6 +96,7 @@ class ElectrophysiologyTransformer(nn.Module):
         past_observed_mask: torch.Tensor | None = None,
         future_values: torch.Tensor | None = None,
         static_categorical_features: torch.Tensor | None = None,
+        static_real_features: torch.Tensor | None = None,
     ):
         """
         Forward pass.
@@ -113,6 +118,7 @@ class ElectrophysiologyTransformer(nn.Module):
             past_observed_mask=past_observed_mask.squeeze(-1)  if past_observed_mask is not None else None,
             future_values=future_values.squeeze(-1) if future_values is not None and future_values.ndim >=3 else future_values,
             static_categorical_features=static_categorical_features,
+            static_real_features=static_real_features,
         )
     
     def predict(
@@ -149,6 +155,7 @@ class ElectrophysiologyTransformer(nn.Module):
         future_time_features: torch.Tensor,
         past_observed_mask: torch.Tensor | None = None,
         static_categorical_features: torch.Tensor | None = None,
+        static_real_features: torch.Tensor | None = None,
         **kwargs,
     ):
         """
@@ -169,6 +176,7 @@ class ElectrophysiologyTransformer(nn.Module):
             future_time_features=future_time_features,
             past_observed_mask=past_observed_mask.squeeze(-1) if past_observed_mask is not None else None,
             static_categorical_features=static_categorical_features,
+            static_real_features=static_real_features,
             **kwargs,
         )
         return outputs
