@@ -104,7 +104,7 @@ def main(data_path=None, checkpoint_path=None, context_length=512, prediction_le
     EPOCHS = epochs
     LEARNING_RATE = learning_rate
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    CHECKPOINT = "best_val.pt"
+    CHECKPOINT = "best_val.pt" if checkpoint_path is None else checkpoint_path
     VAL_SPLIT = 0.1  # Fraction of windows reserved for validation (set to 0 to disable)
     BEST_CHECKPOINT_PATH = "best_val.pt" if checkpoint_path is None else checkpoint_path
     print(f"Using device: {DEVICE}")
