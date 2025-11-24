@@ -94,7 +94,7 @@ def evaluate(model, dataloader, device):
     return total_loss / max(len(dataloader), 1)
 
 
-def main(data_path=None, checkpoint_path=None, context_length=512, prediction_length=128, batch_size=16, epochs=2000, learning_rate=1e-6):
+def main(data_path=None, checkpoint_path=None, context_length=512, prediction_length=128, batch_size=32, epochs=2000, learning_rate=1e-12):
     # Configuration
     DATA_PATH = "nngan_trace_dataset_2000.joblib" if data_path is None else data_path
     CONTEXT_LENGTH = context_length
@@ -217,8 +217,8 @@ def main(data_path=None, checkpoint_path=None, context_length=512, prediction_le
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'loss': val_loss,
-                }, BEST_CHECKPOINT_PATH)
-                print(f"New best validation loss; checkpointed to {BEST_CHECKPOINT_PATH}")
+                }, f"{BEST_CHECKPOINT_PATH}_epoch_{epoch+1}.pt")
+                print(f"New best validation loss; checkpointed to {BEST_CHECKPOINT_PATH}_epoch_{epoch+1}.pt")
 
         print(log_message)
         scheduler.step()

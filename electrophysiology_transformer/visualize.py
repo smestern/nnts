@@ -15,12 +15,13 @@ from electrophysiology_transformer.model import ElectrophysiologyTransformer
 from electrophysiology_transformer.tokenizer import ElectrophysiologyTokenizer
 from dataset import ElectrophysiologyDataset
 
-def load_model(checkpoint_path, device='cpu'):
+def load_model(checkpoint_path, context_length, prediction_length, dataset, device='cpu'):
     """Load a trained model from checkpoint."""
     # Create model with same config as training
+    # Create model
     model = ElectrophysiologyTransformer(
-        context_length=512,
-        prediction_length=128,
+        context_length=context_length,
+        prediction_length=prediction_length,
         d_model=512,
         encoder_layers=8,
         decoder_layers=8,
@@ -29,7 +30,10 @@ def load_model(checkpoint_path, device='cpu'):
         encoder_ffn_dim=512,
         decoder_ffn_dim=512,
         dropout=0.01,
-        scaling="std",)
+        static_categorical_features=dataset.len_static_categorical_features,
+        static_real_features=dataset.len_real_valued_features,
+        scaling="std",
+    )
     
     # Load weights
     if checkpoint_path.endswith('.pt'):
@@ -53,6 +57,7 @@ def visualize_prediction(
     voltage_data,
     current_data,
     cell_id=None,
+    static_real_features=None,
     context_length=256,
     prediction_length=32,
     max_lag=7,
@@ -119,7 +124,7 @@ def visualize_prediction(
         future_time_features = torch.tensor(future_time_features, dtype=torch.float32).unsqueeze(0).to(device)
 
         static_categorical_features = torch.tensor([[cell_id]], dtype=torch.long).to(device) if cell_id is not None else torch.randint(0, 1000, (1,1), dtype=torch.long).to(device)
-
+        static_real_features = static_real_features if static_real_features is not None else torch.tensor([[0.0]], dtype=torch.float32).to(device)  # Adjust if you have real features
         # Make prediction
         with torch.no_grad():
             outputs = model.generate(
@@ -127,6 +132,7 @@ def visualize_prediction(
                 past_time_features=past_time_features,
                 future_time_features=future_time_features,
                 static_categorical_features=static_categorical_features,
+                static_real_features=static_real_features,
             )
         
         # Get the decoder output - this contains the prediction
@@ -259,11 +265,15 @@ def test_denovo(model, tokenizer,   context_length=512,
 
 
 
-def main():
+
+def main(data_path=None, checkpoint_path=None, context_length=512, prediction_length=128):
+    # Configuration
+    DATA_PATH = "nngan_trace_dataset_2000.joblib" if data_path is None else data_path
+    CONTEXT_LENGTH = context_length
+    PREDICTION_LENGTH = prediction_length
     """Main inference script."""
     # Configuration
-    DATA_PATH = "nn_ds_combined.joblib"
-    CHECKPOINT_PATH = "best_val.pt"  # Change to your checkpoint
+    CHECKPOINT_PATH = "best_val.pt" if checkpoint_path is None else checkpoint_path  # Change to your checkpoint
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     print(f"Using device: {DEVICE}")
@@ -274,10 +284,6 @@ def main():
         print("Please train a model first using train.py")
         return
     
-    # Load model
-    print("Loading model...")
-    model = load_model(CHECKPOINT_PATH, device=DEVICE)
-    print("Model loaded!")
     
     # Load data
     print("Loading data...")
@@ -289,16 +295,22 @@ def main():
     )
     
     # Create dataset and dataloader
+    # Create dataset and dataloader
     dataset = ElectrophysiologyDataset(
         data_path=DATA_PATH,
         tokenizer=tokenizer,
-        context_length= 512,
-        prediction_length = 128,
+        context_length=CONTEXT_LENGTH,
+        prediction_length=PREDICTION_LENGTH,
         max_lag=7,
         data_length=10000,
+        include_time_features=True,
+        include_real_valued_features=True,
     )
-
     #test_denovo(model, tokenizer)
+    # Load model
+    print("Loading model...")
+    model = load_model(CHECKPOINT_PATH, context_length=CONTEXT_LENGTH, prediction_length=PREDICTION_LENGTH, dataset=dataset, device=DEVICE)
+    print("Model loaded!")
     
     # Get a sample trial
     for trial_idx in range(50):
@@ -320,6 +332,8 @@ def main():
             tokenizer=tokenizer,
             voltage_data=voltage_sweep,
             current_data=current_sweep,
+            cell_id=data['static_categorical_features'].item(),
+            static_real_features=data['static_real_features'].unsqueeze(0).to(DEVICE),
             context_length=512,
             prediction_length=128,
             device=DEVICE,
