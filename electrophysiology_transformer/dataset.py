@@ -48,7 +48,7 @@ class ElectrophysiologyDataset(Dataset):
         self.include_real_valued_features = include_real_valued_features
         self.list_real_valued_features = real_features_list
         data = joblib.load(data_path)
-
+        self.upsample_unique_data = True
         voltages = data['responses']
         currents = data['commands']
         info = data.get('info', None)
@@ -56,6 +56,7 @@ class ElectrophysiologyDataset(Dataset):
         self.samples = []
         self._prepare_samples(voltages, currents, info)
         self.index = self._build_index()
+        self._upsample_unique_data() if self.upsample_unique_data else None
         self.len_real_valued_features = len(self.list_real_valued_features)
         self.len_static_categorical_features = 1  # cell-of-origin as static categorical feature
 
@@ -129,7 +130,39 @@ class ElectrophysiologyDataset(Dataset):
             spans = [spans[i] for i in sorted(selected)]
 
         return spans
+    
+    def _upsample_unique_data(self):
+        """Upsample unique data samples to balance the dataset. Essentially we want to get segments where current is changing more often."""
+        #use the precomputed index to find unique samples
+        unique_spans = set()
+        for span in self.index:
+            trial_idx, start_idx = span
+            sample = self.samples[trial_idx]
+            current_window = sample['current'][start_idx:start_idx + self.total_length]
+            if np.any(np.diff(current_window) != 0):
+                unique_spans.add(span)
+        unique_spans = list(unique_spans)
+        #upsample by jittering the idxs a little
+        augmented_spans = []
+        for span in unique_spans:
+            trial_idx, start_idx = span
+            for shift in [-2, -1, 0, 1, 2]:
+                new_start = start_idx + shift
+                sample = self.samples[trial_idx]
+                if 0 <= new_start <= sample['voltage'].shape[0] - self.total_length:
+                    augmented_spans.append((trial_idx, new_start))
+        
 
+        #only grow to double the dataset size
+        target_size = min(len(self.index) * 2, len(self.index) + len(augmented_spans))
+        current_size = len(self.index)
+        if current_size < target_size:
+            needed = target_size - current_size
+            self.index.extend(augmented_spans[:needed])
+            print(f"Upsampled {len(unique_spans)} unique spans to {len(augmented_spans[:needed])} spans.")
+        else:
+            self.index.extend(augmented_spans)
+            print(f"Upsampled {len(unique_spans)} unique spans to {len(augmented_spans)} spans.")
     def __len__(self):
         return len(self.index)
 
@@ -182,3 +215,5 @@ class ElectrophysiologyDataset(Dataset):
                 dtype=torch.float32
             ) if self.include_real_valued_features else torch.tensor([] , dtype=torch.float32),
         }
+
+    

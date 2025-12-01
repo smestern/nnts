@@ -175,7 +175,7 @@ def visualize_prediction(
         plt.tight_layout()
     return fig
 
-def test_denovo(model, tokenizer,   context_length=512,
+def test_denovo(model, dataset, tokenizer,   context_length=512,
     prediction_length=128,  max_lag=7, cell_id=None, device="cuda"):
     total_length = context_length + max_lag + prediction_length
     # Dummy test function for de novo prediction
@@ -183,8 +183,8 @@ def test_denovo(model, tokenizer,   context_length=512,
     sr = 10000  # 10 kHz
     t = np.arange(0, 1, 1.0/sr)
     current_injection = np.zeros_like(t)
-    current_injection[(t >= 0.5) & (t < 1.5)] = 2000.0  # 2000 pA pulse from 0.5s to 1.5s
-    voltage_response = -65.0 * np.ones(total_length).astype(np.float32)  # baseline at -65 mV
+    current_injection[(t >= 0.5) & (t < 1.5)] = 200.0  # 200 pA pulse from 0.5s to 1.5s
+    voltage_response = -75.0 * np.ones(total_length).astype(np.float32)  # baseline at -75 mV
     # Add some noise
     voltage_response += np.random.normal(0, 0.5, size=voltage_response.shape)
     
@@ -193,6 +193,10 @@ def test_denovo(model, tokenizer,   context_length=512,
     # Process data
     voltage_proc, current_proc = tokenizer(voltage_response, current_injection)
     volt_out = []
+    #borrow static features from dataset
+    if cell_id is None:
+        cell_id = dataset[0]['static_categorical_features'].item()
+        static_real_features = dataset[0]['static_real_features'].unsqueeze(0).to(device)
 
     for i in range(0, len(current_proc) - total_length + 1, prediction_length):
         
@@ -205,7 +209,7 @@ def test_denovo(model, tokenizer,   context_length=512,
 
         if i > 0:
             #append the predictions to the future voltage true for continuous plotting
-            past_voltage_in = np.concatenate([past_voltage_in, predicted_voltage])[-past_length:]
+            past_voltage_in = np.clip(np.concatenate([past_voltage_in, predicted_voltage_orig])[-past_length:], -120.0, 40.0) #unstable rn so clip
         else:
             past_voltage_in = voltage_proc
                 # Create input tensors
@@ -229,7 +233,7 @@ def test_denovo(model, tokenizer,   context_length=512,
         future_time_features = torch.tensor(future_time_features, dtype=torch.float32).unsqueeze(0).to(device)
 
         static_categorical_features = torch.tensor([[cell_id]], dtype=torch.long).to(device) if cell_id is not None else torch.randint(0, 500, (1,1), dtype=torch.long).to(device)
-
+        static_real_features = static_real_features if static_real_features is not None else torch.tensor([[0.0]], dtype=torch.float32).to(device)  # Adjust if you have real features
         # Make prediction
         with torch.no_grad():
             outputs = model.generate(
@@ -237,6 +241,7 @@ def test_denovo(model, tokenizer,   context_length=512,
                 past_time_features=past_time_features,
                 future_time_features=future_time_features,
                 static_categorical_features=static_categorical_features,
+                static_real_features=static_real_features,
             )
         
         # Get the decoder output - this contains the prediction
@@ -261,6 +266,7 @@ def test_denovo(model, tokenizer,   context_length=512,
     axes[0].grid(True, alpha=0.3)
     axes[1].plot(time_axis, current_injection[:len(volt_out)], 'orange', label='Input Current', linewidth=1.5)
     axes[1].set_ylabel('Current (pA)')
+    axes[0].set_ylim(-80, 20)
     fig.show()
 
 
@@ -273,7 +279,7 @@ def main(data_path=None, checkpoint_path=None, context_length=512, prediction_le
     PREDICTION_LENGTH = prediction_length
     """Main inference script."""
     # Configuration
-    CHECKPOINT_PATH = "best_val.pt" if checkpoint_path is None else checkpoint_path  # Change to your checkpoint
+    CHECKPOINT_PATH = "C:\\Users\\SMest\\Dropbox\\nnGAN\\best_val.pt_epoch_29.pt_epoch_35.pt_epoch_34.pt_epoch_18.pt_epoch_18.pt_epoch_20.pt" if checkpoint_path is None else checkpoint_path  # Change to your checkpoint
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     print(f"Using device: {DEVICE}")
@@ -306,12 +312,12 @@ def main(data_path=None, checkpoint_path=None, context_length=512, prediction_le
         include_time_features=True,
         include_real_valued_features=True,
     )
-    #test_denovo(model, tokenizer)
+   
     # Load model
     print("Loading model...")
     model = load_model(CHECKPOINT_PATH, context_length=CONTEXT_LENGTH, prediction_length=PREDICTION_LENGTH, dataset=dataset, device=DEVICE)
     print("Model loaded!")
-    
+    test_denovo(model, dataset, tokenizer)
     # Get a sample trial
     for trial_idx in range(50):
         data = dataset[trial_idx]

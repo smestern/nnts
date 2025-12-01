@@ -94,7 +94,7 @@ def evaluate(model, dataloader, device):
     return total_loss / max(len(dataloader), 1)
 
 
-def main(data_path=None, checkpoint_path=None, context_length=512, prediction_length=128, batch_size=32, epochs=2000, learning_rate=1e-12):
+def main(data_path=None, checkpoint_path="C:\\Users\\SMest\\Dropbox\\nnGAN\\best_val.pt_epoch_29.pt_epoch_35.pt_epoch_34.pt_epoch_18.pt_epoch_18.pt_epoch_20.pt", context_length=512, prediction_length=128, batch_size=32, epochs=2000, learning_rate=1e-5):
     # Configuration
     DATA_PATH = "nngan_trace_dataset_2000.joblib" if data_path is None else data_path
     CONTEXT_LENGTH = context_length
