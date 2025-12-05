@@ -188,6 +188,8 @@ def main(data_path=None, checkpoint_path="C:\\Users\\SMest\\Dropbox\\nnGAN\\best
         checkpoint = torch.load(CHECKPOINT, map_location=DEVICE)
         model.load_state_dict(checkpoint['model_state_dict'])
         print(f"Resumed training from checkpoint: {CHECKPOINT}")
+    else:
+        print("No checkpoint found, training from scratch.")
     
     # Optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
