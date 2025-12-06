@@ -183,7 +183,7 @@ def test_denovo(model, dataset, tokenizer,   context_length=512,
     sr = 10000  # 10 kHz
     t = np.arange(0, 1, 1.0/sr)
     current_injection = np.zeros_like(t)
-    current_injection[(t >= 0.5) & (t < 1.5)] = 200.0  # 200 pA pulse from 0.5s to 1.5s
+    current_injection[(t >= 0.5) & (t < 1.5)] = -200.0  # 200 pA pulse from 0.5s to 1.5s
     voltage_response = -75.0 * np.ones(total_length).astype(np.float32)  # baseline at -75 mV
     # Add some noise
     voltage_response += np.random.normal(0, 0.5, size=voltage_response.shape)
@@ -279,7 +279,7 @@ def main(data_path=None, checkpoint_path=None, context_length=512, prediction_le
     PREDICTION_LENGTH = prediction_length
     """Main inference script."""
     # Configuration
-    CHECKPOINT_PATH = "C:\\Users\\SMest\\Dropbox\\nnGAN\\best_val.pt_epoch_29.pt_epoch_35.pt_epoch_34.pt_epoch_18.pt_epoch_18.pt_epoch_20.pt" if checkpoint_path is None else checkpoint_path  # Change to your checkpoint
+    CHECKPOINT_PATH = "C:\\Users\\SMest\\Dropbox\\nnGAN\\best_train_new_ds.pt" if checkpoint_path is None else checkpoint_path  # Change to your checkpoint
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     print(f"Using device: {DEVICE}")

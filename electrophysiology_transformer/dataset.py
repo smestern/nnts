@@ -134,6 +134,7 @@ class ElectrophysiologyDataset(Dataset):
     def _upsample_unique_data(self):
         """Upsample unique data samples to balance the dataset. Essentially we want to get segments where current is changing more often."""
         #use the precomputed index to find unique samples
+        print("Upsampling unique data segments...")
         unique_spans = set()
         for span in self.index:
             trial_idx, start_idx = span
