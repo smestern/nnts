@@ -25,8 +25,8 @@ def load_model(checkpoint_path, context_length, prediction_length, dataset, devi
         d_model=512,
         encoder_layers=8,
         decoder_layers=8,
-        encoder_attention_heads=8,
-        decoder_attention_heads=8,
+        encoder_attention_heads=16,
+        decoder_attention_heads=16,
         encoder_ffn_dim=512,
         decoder_ffn_dim=512,
         dropout=0.01,
@@ -42,7 +42,7 @@ def load_model(checkpoint_path, context_length, prediction_length, dataset, devi
             model.load_state_dict(torch.load(checkpoint_path, map_location=device))
         else:
             # Checkpoint format
-            checkpoint = torch.load(checkpoint_path, map_location=device)
+            checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
             model.load_state_dict(checkpoint['model_state_dict'])
             print(f"Loaded checkpoint from epoch {checkpoint['epoch']+1}")
     
@@ -183,7 +183,7 @@ def test_denovo(model, dataset, tokenizer,   context_length=512,
     sr = 10000  # 10 kHz
     t = np.arange(0, 1, 1.0/sr)
     current_injection = np.zeros_like(t)
-    current_injection[(t >= 0.5) & (t < 1.5)] = -200.0  # 200 pA pulse from 0.5s to 1.5s
+    current_injection[(t >= 0.1) & (t < 1.0)] = 200.0  # 200 pA pulse from 0.1s to 1.0s
     voltage_response = -75.0 * np.ones(total_length).astype(np.float32)  # baseline at -75 mV
     # Add some noise
     voltage_response += np.random.normal(0, 0.5, size=voltage_response.shape)
@@ -251,7 +251,7 @@ def test_denovo(model, dataset, tokenizer,   context_length=512,
         # Decode the data back to original scale
         past_current_orig = tokenizer.decode_current(past_current)
         future_current_orig = tokenizer.decode_current(future_current)
-        predicted_voltage = outputs.sequences.squeeze(0).cpu().numpy()[3, :]
+        predicted_voltage = outputs.sequences.squeeze(0).cpu().numpy()[0, :]
         predicted_voltage_orig = tokenizer.decode_voltage(predicted_voltage)
 
         volt_out.extend(predicted_voltage_orig)
@@ -272,14 +272,14 @@ def test_denovo(model, dataset, tokenizer,   context_length=512,
 
 
 
-def main(data_path=None, checkpoint_path=None, context_length=512, prediction_length=128):
+def main(data_path=None, checkpoint_path=None, context_length=1024, prediction_length=128):
     # Configuration
     DATA_PATH = "nngan_trace_dataset_2000.joblib" if data_path is None else data_path
     CONTEXT_LENGTH = context_length
     PREDICTION_LENGTH = prediction_length
     """Main inference script."""
     # Configuration
-    CHECKPOINT_PATH = "C:\\Users\\SMest\\Dropbox\\nnGAN\\best_train_new_ds.pt" if checkpoint_path is None else checkpoint_path  # Change to your checkpoint
+    CHECKPOINT_PATH = "C:\\Users\\SMest\\Dropbox\\nnGAN\\best_val.pt_epoch_39.pt_epoch_56.pt_epoch_92.pt_epoch_114.pt" if checkpoint_path is None else checkpoint_path  # Change to your checkpoint
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     print(f"Using device: {DEVICE}")
@@ -317,7 +317,7 @@ def main(data_path=None, checkpoint_path=None, context_length=512, prediction_le
     print("Loading model...")
     model = load_model(CHECKPOINT_PATH, context_length=CONTEXT_LENGTH, prediction_length=PREDICTION_LENGTH, dataset=dataset, device=DEVICE)
     print("Model loaded!")
-    test_denovo(model, dataset, tokenizer)
+    test_denovo(model, dataset, tokenizer, context_length=CONTEXT_LENGTH,)
     # Get a sample trial
     for trial_idx in range(50):
         data = dataset[trial_idx]
@@ -340,7 +340,7 @@ def main(data_path=None, checkpoint_path=None, context_length=512, prediction_le
             current_data=current_sweep,
             cell_id=data['static_categorical_features'].item(),
             static_real_features=data['static_real_features'].unsqueeze(0).to(DEVICE),
-            context_length=512,
+            context_length=1024,
             prediction_length=128,
             device=DEVICE,
         )
